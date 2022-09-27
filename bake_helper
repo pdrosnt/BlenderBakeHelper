@@ -1,0 +1,203 @@
+import bpy
+
+class BAKERY_PT_main_panel(bpy.types.Panel):
+    
+    bl_label = "Bake Materials Panel"
+    bl_idname = " BAKERY_PT_main_panel"
+    
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "New Tab"
+    
+    def draw(self, context):
+        layout = self.layout
+        
+        layout.operator("bakery.uv_operator")
+        layout.operator("bakery.selectbakeuv_operator")
+        layout.operator("bakery.selectuvmap_operator")
+        layout.operator("bakery.setupimage_operator")
+        layout.operator("bakery.clear_operator")
+        
+        
+
+class BAKERY_OT_setup_uvs(bpy.types.Operator):
+    bl_label  = "Set Up UV"
+    bl_idname = "bakery.uv_operator"
+    
+    def execute(self, context):
+        
+        for obj in bpy.context.selected_objects:
+            
+            if obj.type == 'MESH' and "UVMap" not in obj.data.uv_layers:
+                obj.data.uv_layers.new(name="UVMap")
+
+            if obj.type == 'MESH' and "UV_bake" not in obj.data.uv_layers:
+                obj.data.uv_layers.new(name="UV_bake")
+
+            obj.data.uv_layers["UV_bake"].active_render = True
+            obj.data.uv_layers.active = obj.data.uv_layers["UV_bake"]
+        
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        bpy.ops.mesh.select_all(action='SELECT')
+    
+        bpy.ops.uv.smart_project()
+
+        return{'FINISHED'}
+    
+class BAKERY_OT_select_bake_uv(bpy.types.Operator):
+    bl_label  = "Select UV_bake"
+    bl_idname = "bakery.selectbakeuv_operator"
+    
+    def execute(self, context):
+        
+        for obj in bpy.context.selected_objects:
+        
+            obj.data.uv_layers["UV_bake"].active_render = True
+            
+            obj.data.uv_layers.active = obj.data.uv_layers["UV_bake"]
+            
+        return{'FINISHED'}
+
+class BAKERY_OT_select_map_uv(bpy.types.Operator):
+    bl_label  = "Select UVMap"
+    bl_idname = "bakery.selectuvmap_operator"
+    
+    def execute(self, context):
+        
+        for obj in bpy.context.selected_objects:
+        
+            obj.data.uv_layers["UVMap"].active_render = True
+            
+            obj.data.uv_layers.active = obj.data.uv_layers["UVMap"]
+        
+        return{'FINISHED'}
+    
+
+class BAKERY_OT_setup_color(bpy.types.Operator):
+    bl_label  = "Setup Color Texture"
+    bl_idname = "bakery.setupimage_operator"
+    
+    def execute(self, context):
+        
+        img = bpy.data.images.get("baked_color")
+        
+        if not img:
+            img = bpy.data.images.new("baked_color",2048,2048)
+          
+        mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
+        
+        for mat in mats:
+            
+            image_tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+            image_tex_node.image = img
+            uv_bake_node =  mat.node_tree.nodes.new("ShaderNodeUVMap")
+            uv_bake_node.uv_map = "UV_bake"
+                        
+            mat.node_tree.links.new(image_tex_node.inputs[0],uv_bake_node.outputs[0])
+            
+            mat.node_tree.nodes.active = image_tex_node
+                                   
+        return{'FINISHED'}
+    
+class BAKERY_OT_setup_color(bpy.types.Operator):
+    bl_label  = "Setup Color Texture"
+    bl_idname = "bakery.setupcolorimage_operator"
+    
+    def execute(self, context):
+        
+        img = bpy.data.images.get("baked_color")
+        
+        if not img:
+            img = bpy.data.images.new("baked_color",2048,2048)
+          
+        mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
+        
+        for mat in mats:
+            
+            image_tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+            image_tex_node.image = img
+            uv_bake_node =  mat.node_tree.nodes.new("ShaderNodeUVMap")
+            uv_bake_node.uv_map = "UV_bake"
+                        
+            mat.node_tree.links.new(image_tex_node.inputs[0],uv_bake_node.outputs[0])
+            
+            mat.node_tree.nodes.active = image_tex_node
+                                   
+        return{'FINISHED'}
+
+
+class BAKERY_OT_clear_nodes(bpy.types.Operator):
+    bl_label  = "Clear Nodes"
+    bl_idname = "bakery.clear_operator"
+
+    
+    def execute(self, context):
+        
+        #mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
+        
+        mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
+        
+        for mat in mats:
+            
+            connected_list = []
+            
+            append_list = []
+            
+            for mat_node in mat.node_tree.nodes:
+                if mat_node.type == 'OUTPUT_MATERIAL':
+                    
+                    append_list = [mat_node]
+                    
+                    while len(append_list) > 0:
+                    
+                        connected_list.append(append_list)
+                        
+                        al_copy = append_list
+                        
+                        append_list = []
+                        
+                        for node in al_copy:
+                            
+                            for input in node.inputs:
+                    
+                                for l in input.links:
+                                    append_list.append(l.from_node)
+                            
+            print('=====================div====================')
+            
+            nodes_list = []
+            
+            for c in connected_list:
+                for j in c:
+                    nodes_list.append(j)
+                    print(j)
+                    print('-------------')
+                    #print(type(c))
+            
+            for mat_node in mat.node_tree.nodes:
+                
+                if mat_node not in nodes_list:
+                   
+                    print('=======')
+                    print(mat_node)
+                    
+                    mat.node_tree.nodes.remove(mat_node)
+                
+                
+        return{'FINISHED'}
+
+
+classes = [BAKERY_PT_main_panel,BAKERY_OT_setup_color,BAKERY_OT_setup_uvs,BAKERY_OT_select_bake_uv,BAKERY_OT_select_map_uv,BAKERY_OT_clear_nodes]
+    
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+        
+def unregister():
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
+        
+
+if __name__ == "__main__":
+    register()
