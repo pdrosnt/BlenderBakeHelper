@@ -1,5 +1,7 @@
 import bpy
 
+resolution = 2048
+
 class BAKERY_PT_main_panel(bpy.types.Panel):
     
     bl_label = "Bake Materials Panel"
@@ -15,7 +17,9 @@ class BAKERY_PT_main_panel(bpy.types.Panel):
         layout.operator("bakery.uv_operator")
         layout.operator("bakery.selectbakeuv_operator")
         layout.operator("bakery.selectuvmap_operator")
-        layout.operator("bakery.setupimage_operator")
+        layout.operator("bakery.setupcimage_operator")
+        layout.operator("bakery.setuprimage_operator")
+        layout.operator("bakery.setupnimage_operator")
         layout.operator("bakery.clear_operator")
         
         
@@ -76,14 +80,14 @@ class BAKERY_OT_select_map_uv(bpy.types.Operator):
 
 class BAKERY_OT_setup_color(bpy.types.Operator):
     bl_label  = "Setup Color Texture"
-    bl_idname = "bakery.setupimage_operator"
+    bl_idname = "bakery.setupcimage_operator"
     
     def execute(self, context):
         
         img = bpy.data.images.get("baked_color")
         
         if not img:
-            img = bpy.data.images.new("baked_color",2048,2048)
+            img = bpy.data.images.new("baked_color",resolution,resolution)
           
         mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
         
@@ -100,16 +104,43 @@ class BAKERY_OT_setup_color(bpy.types.Operator):
                                    
         return{'FINISHED'}
     
-class BAKERY_OT_setup_color(bpy.types.Operator):
-    bl_label  = "Setup Color Texture"
-    bl_idname = "bakery.setupcolorimage_operator"
+
+class BAKERY_OT_setup_rough(bpy.types.Operator):
+    bl_label  = "Setup Rough Texture"
+    bl_idname = "bakery.setuprimage_operator"
     
     def execute(self, context):
         
         img = bpy.data.images.get("baked_color")
         
         if not img:
-            img = bpy.data.images.new("baked_color",2048,2048)
+            img = bpy.data.images.new("baked_color",resolution,resolution)
+          
+        mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
+        
+        for mat in mats:
+            
+            image_tex_node = mat.node_tree.nodes.new("ShaderNodeTexImage")
+            image_tex_node.image = img
+            uv_bake_node =  mat.node_tree.nodes.new("ShaderNodeUVMap")
+            uv_bake_node.uv_map = "UV_bake"
+                        
+            mat.node_tree.links.new(image_tex_node.inputs[0],uv_bake_node.outputs[0])
+            
+            mat.node_tree.nodes.active = image_tex_node
+                                   
+        return{'FINISHED'}
+    
+class BAKERY_OT_setup_normal(bpy.types.Operator):
+    bl_label  = "Setup Normal Texture"
+    bl_idname = "bakery.setupnimage_operator"
+    
+    def execute(self, context):
+        
+        img = bpy.data.images.get("baked_normal")
+        
+        if not img:
+            img = bpy.data.images.new("baked_normal",resolution,resolution)
           
         mats = set(slot.material for o in bpy.context.selected_objects for slot in o.material_slots)
         
@@ -188,7 +219,7 @@ class BAKERY_OT_clear_nodes(bpy.types.Operator):
         return{'FINISHED'}
 
 
-classes = [BAKERY_PT_main_panel,BAKERY_OT_setup_color,BAKERY_OT_setup_uvs,BAKERY_OT_select_bake_uv,BAKERY_OT_select_map_uv,BAKERY_OT_clear_nodes]
+classes = [BAKERY_PT_main_panel,BAKERY_OT_setup_color,BAKERY_OT_setup_uvs,BAKERY_OT_setup_rough,BAKERY_OT_setup_normal,BAKERY_OT_select_bake_uv,BAKERY_OT_select_map_uv,BAKERY_OT_clear_nodes]
     
 def register():
     for cls in classes:
